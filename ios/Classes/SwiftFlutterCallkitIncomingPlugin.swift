@@ -640,7 +640,12 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
                 action.fulfill()
             }
         }else {
-            self.answerCall = nil
+            if self.answerCall?.uuid.uuidString == call.uuid.uuidString {
+                self.answerCall = nil
+            }
+            if self.outgoingCall?.uuid.uuidString == call.uuid.uuidString {
+                self.outgoingCall = nil
+            }
             sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_ENDED, call.data.toJSON())
             if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
                 appDelegate.onEnd(call, action)
