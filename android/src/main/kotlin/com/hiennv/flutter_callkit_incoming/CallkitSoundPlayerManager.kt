@@ -106,20 +106,27 @@ class CallkitSoundPlayerManager(private val context: Context) {
             ""
         )
         val uri = sound?.let { getRingtoneUri(it) }
-        if (uri == null) {
-            // Failed to get ringtone url, can't play sound
-            return
-        }
+        if (uri == null) return
+        
         try {
             ringtone = RingtoneManager.getRingtone(context, uri)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                val attribution = AudioAttributes.Builder()
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
-                .setLegacyStreamType(AudioManager.STREAM_RING)
-                .build()
+                val attribution = if (isBluetoothAudioAvailable()) {
+                    // 블루투스 있으면 → communication 스트림 → ConnectionService의 BT 라우팅을 따라감
+                    AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                        .build()
+                } else {
+                    // 블루투스 없으면 → 기존 링톤 스트림 → 스피커로 재생
+                    AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                        .setLegacyStreamType(AudioManager.STREAM_RING)
+                        .build()
+                }
                 ringtone?.setAudioAttributes(attribution)
-            }else {
+            } else {
                 ringtone?.streamType = AudioManager.STREAM_RING
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -128,6 +135,20 @@ class CallkitSoundPlayerManager(private val context: Context) {
             ringtone?.play()
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+    }
+
+    private fun isBluetoothAudioAvailable(): Boolean {
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            return audioManager.availableCommunicationDevices.any {
+                it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+                it.type == android.media.AudioDeviceInfo.TYPE_BLE_HEADSET
+            }
+        } else {
+            return audioManager.isBluetoothScoAvailableOffCall || 
+                audioManager.isBluetoothA2dpOn
         }
     }
 

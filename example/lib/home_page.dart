@@ -130,7 +130,7 @@ class HomePageState extends State<HomePage> {
   }
 
   Future<void> makeFakeCallInComing() async {
-    await Future.delayed(const Duration(seconds: 10), () async {
+    await Future.delayed(const Duration(seconds: 1), () async {
       _currentUuid = _uuid.v4();
 
       final params = CallKitParams(

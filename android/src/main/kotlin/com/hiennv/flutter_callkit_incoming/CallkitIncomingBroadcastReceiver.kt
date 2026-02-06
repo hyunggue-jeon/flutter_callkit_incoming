@@ -7,6 +7,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.telecom.TelecomManager
 
 class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
 
@@ -91,12 +92,24 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action ?: return
         val data = intent.extras?.getBundle(CallkitConstants.EXTRA_CALLKIT_INCOMING_DATA) ?: return
+        Log.d(TAG, "onReceive $action", )
         when (action) {
             "${context.packageName}.${CallkitConstants.ACTION_CALL_INCOMING}" -> {
                 try {
-                    getCallkitNotificationManager()?.showIncomingNotification(data)
                     sendEventFlutter(CallkitConstants.ACTION_CALL_INCOMING, data)
                     addCall(context, Data.fromBundle(data))
+                    
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        val telecomManager = context.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
+                        val handle = InAppCallManager(context).getPhoneAccountHandle()
+                        val extras = Bundle().apply {
+                            putBundle(TelecomManager.EXTRA_INCOMING_CALL_EXTRAS, data)
+                        }
+                        telecomManager.addNewIncomingCall(handle, extras)
+                    }else {
+                        // O 미만은 기존 방식 fallback
+                        getCallkitNotificationManager()?.showIncomingNotification(data)
+                    }
                 } catch (error: Exception) {
                     Log.e(TAG, null, error)
                 }
@@ -129,6 +142,11 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                     )
                     sendEventFlutter(CallkitConstants.ACTION_CALL_ACCEPT, data)
                     addCall(context, Data.fromBundle(data), true)
+
+                    // Connection을 Active로 전환
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        CallkitConnectionService.setConnectionActive()
+                    }
                 } catch (error: Exception) {
                     Log.e(TAG, null, error)
                 }
@@ -143,6 +161,10 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                     getCallkitNotificationManager()?.clearIncomingNotification(data, false)
                     sendEventFlutter(CallkitConstants.ACTION_CALL_DECLINE, data)
                     removeCall(context, Data.fromBundle(data))
+                    // Connection 정리
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        CallkitConnectionService.disconnectCurrentConnection()
+                    }
                 } catch (error: Exception) {
                     Log.e(TAG, null, error)
                 }
@@ -155,6 +177,11 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                     CallkitNotificationService.stopService(context)
                     sendEventFlutter(CallkitConstants.ACTION_CALL_ENDED, data)
                     removeCall(context, Data.fromBundle(data))
+
+                    // Connection 정리
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        CallkitConnectionService.disconnectCurrentConnection()
+                    }
                 } catch (error: Exception) {
                     Log.e(TAG, null, error)
                 }
