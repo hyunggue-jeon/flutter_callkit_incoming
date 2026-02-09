@@ -56,7 +56,7 @@ class CallkitConnectionService : ConnectionService() {
         disconnectCurrentConnection()
         val data = request?.extras?.getBundle(TelecomManager.EXTRA_OUTGOING_CALL_EXTRAS)
         return CallkitConnection(applicationContext, data, isIncoming = false).apply {
-            setDialing()      // outgoing은 DIALING 상태로 시작
+            setActive()
             activeConnection = this
         }
     }
