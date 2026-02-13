@@ -1,8 +1,10 @@
 package com.hiennv.flutter_callkit_incoming
 
+import android.util.Log
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
+import android.telecom.CallAudioState
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -377,7 +379,18 @@ class FlutterCallkitIncomingPlugin : FlutterPlugin, MethodCallHandler, ActivityA
                 }
 
                 "setAudioRoute" -> {
+                    val route = call.arguments as? Int ?: CallAudioState.ROUTE_SPEAKER
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        CallkitConnectionService.setAudioRoute(route)
+                    }
                     result.success(true)
+                }
+
+                "getAudioState" -> {
+                    val route = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        CallkitConnectionService.activeConnection?.callAudioState?.route
+                    } else null
+                    result.success(route)
                 }
             }
         } catch (error: Exception) {

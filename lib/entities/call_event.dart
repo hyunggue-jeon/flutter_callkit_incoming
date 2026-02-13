@@ -8,6 +8,24 @@ class CallEvent {
   String toString() => 'CallEvent( body: $body, event: $event)';
 }
 
+enum CallAudioRoute {
+  earpiece(1),
+  bluetooth(2),
+  wiredHeadset(4),
+  speaker(8);
+
+  final int value;
+  const CallAudioRoute(this.value);
+
+  static CallAudioRoute? fromValue(int value) {
+    return CallAudioRoute.values.where((e) => e.value == value).firstOrNull;
+  }
+
+  static bool isSupported(int supportedMask, CallAudioRoute route) {
+    return (supportedMask & route.value) != 0;
+  }
+}
+
 enum Event {
   actionDidUpdateDevicePushTokenVoip,
   actionCallIncoming,
@@ -24,6 +42,7 @@ enum Event {
   actionCallToggleGroup,
   actionCallToggleAudioSession,
   actionCallCustom,
+  actionCallAudioStateChanged,
 }
 
 /// Using extension for backward compatibility Dart SDK 2.17.0 and lower
@@ -60,6 +79,8 @@ extension EventX on Event {
         return 'com.hiennv.flutter_callkit_incoming.ACTION_CALL_TOGGLE_AUDIO_SESSION';
       case Event.actionCallCustom:
         return 'com.hiennv.flutter_callkit_incoming.ACTION_CALL_CUSTOM';
+      case Event.actionCallAudioStateChanged:
+        return 'com.hiennv.flutter_callkit_incoming.ACTION_CALL_AUDIO_STATE_CHANGED';
     }
   }
 }

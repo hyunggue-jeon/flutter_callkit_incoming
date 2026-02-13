@@ -81,6 +81,11 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                 action = "${context.packageName}.${CallkitConstants.ACTION_CALL_CONNECTED}"
                 putExtra(CallkitConstants.EXTRA_CALLKIT_INCOMING_DATA, data)
             }
+        fun getIntentAudioState(context: Context, data: Bundle?) =
+            Intent(context, CallkitIncomingBroadcastReceiver::class.java).apply {
+                action = "${context.packageName}.${CallkitConstants.ACTION_CALL_AUDIO_STATE_CHANGED}"
+                putExtra(CallkitConstants.EXTRA_CALLKIT_INCOMING_DATA, data)
+            }
     }
 
     // Get notification manager dynamically to handle plugin lifecycle properly
@@ -93,7 +98,7 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action ?: return
         val data = intent.extras?.getBundle(CallkitConstants.EXTRA_CALLKIT_INCOMING_DATA) ?: return
-        Log.d(TAG, "onReceive $action", )
+        Log.d(TAG, "onReceive $action data : ${data}")
         when (action) {
             "${context.packageName}.${CallkitConstants.ACTION_CALL_INCOMING}" -> {
                 try {
@@ -234,9 +239,15 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                     Log.e(TAG, null, error)
                 }
             }
+            "${context.packageName}.${CallkitConstants.ACTION_CALL_AUDIO_STATE_CHANGED}" -> {
+                try {
+                    sendEventFlutter(CallkitConstants.ACTION_CALL_AUDIO_STATE_CHANGED, data)
+                } catch (error: Exception) {
+                    Log.e(TAG, null, error)
+                }
+            }
         }
     }
-
     private fun sendEventFlutter(event: String, data: Bundle) {
         if (silenceEvents) return
 
@@ -295,6 +306,7 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
             "extra" to data.getSerializable(CallkitConstants.EXTRA_CALLKIT_EXTRA),
             "missedCallNotification" to missedCallNotification,
             "callingNotification" to callingNotification,
+            "audioRoute" to data.getInt("audioRoute"),
             "android" to android
         )
         FlutterCallkitIncomingPlugin.sendEvent(event, forwardData)

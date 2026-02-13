@@ -139,6 +139,14 @@ class FlutterCallkitIncoming {
     return await _channel.invokeMethod("requestFullIntentPermission");
   }
 
+  static Future setAudioRoute(int callAudioRoute) async {
+    return await _channel.invokeMethod("setAudioRoute", callAudioRoute);
+  }
+
+  static Future<int?> getAudioRoute() async {
+    return await _channel.invokeMethod<int>("getAudioState");
+  }
+
   /// Check can use full screen intent for Android(14)+
   /// Only Android: canUseFullScreenIntent permission for ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT
   static Future canUseFullScreenIntent() async {
@@ -150,7 +158,8 @@ class FlutterCallkitIncoming {
     Map<String, dynamic> body = {};
 
     if (data is Map) {
-      event = Event.values.firstWhere((e) => e.name == data['event']);
+      event = Event.values.where((e) => e.name == data['event']).firstOrNull;
+      if (event == null) return null;
       body = Map<String, dynamic>.from(data['body']);
       return CallEvent(body, event);
     }

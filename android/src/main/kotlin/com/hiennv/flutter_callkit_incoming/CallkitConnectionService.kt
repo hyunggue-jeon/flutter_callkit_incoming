@@ -35,6 +35,22 @@ class CallkitConnectionService : ConnectionService() {
                 }
             }
         }
+        fun setAudioRoute(route: Int) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                activeConnection?.setAudioRoute(route)
+            }
+            Log.d("CallkitConnectionService","setAudioRoute route: ${route}")
+        } 
+        
+        fun getCurrentAudioState(): Map<String, Any>? {
+            val state = activeConnection?.callAudioState ?: return null
+            Log.d("CallkitConnectionService", "getCurrentAudioState: route=${state.route} ")
+            return mapOf(
+                "route" to state.route,
+                "supportedRoutes" to state.supportedRouteMask,
+                "isMuted" to state.isMuted
+            )
+        }
     }
     override fun onCreateIncomingConnection(
         connectionManagerPhoneAccount: PhoneAccountHandle?,
@@ -44,6 +60,7 @@ class CallkitConnectionService : ConnectionService() {
         disconnectCurrentConnection()
 
         val data = request?.extras?.getBundle(TelecomManager.EXTRA_INCOMING_CALL_EXTRAS)
+        
         return CallkitConnection(applicationContext, data, isIncoming = true).apply {
             setRinging()  // STATE_RINGING 설정
             activeConnection = this
@@ -55,6 +72,8 @@ class CallkitConnectionService : ConnectionService() {
     ): Connection {
         disconnectCurrentConnection()
         val data = request?.extras?.getBundle(TelecomManager.EXTRA_OUTGOING_CALL_EXTRAS)
+        ?: request?.extras
+        
         return CallkitConnection(applicationContext, data, isIncoming = false).apply {
             setActive()
             activeConnection = this
@@ -93,9 +112,25 @@ class CallkitConnection(private val context: Context, private val callData: Bund
     }
 
     override fun onCallAudioStateChanged(state: CallAudioState) {
+        
         if (isIncoming && state.route == CallAudioState.ROUTE_BLUETOOTH) {
             showNotificationIfNeeded()
         }
+        
+        Log.d("CallkitConnectionService","onCallAudioStateChanged route: ${state.route} callData: ${callData}")
+       
+         callData?.let { data ->
+            val ctx = context
+             val enriched = Bundle(data).apply {
+                putInt("audioRoute", state.route)
+                putInt("audioSupportedRoutes", state.supportedRouteMask)
+                putBoolean("audioIsMuted", state.isMuted)
+            }
+            ctx.sendBroadcast(
+                CallkitIncomingBroadcastReceiver.getIntentAudioState(ctx, enriched)
+            )
+        }
+        
     }
 
     override fun onAnswer() {
