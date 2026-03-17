@@ -246,6 +246,22 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                     Log.e(TAG, null, error)
                 }
             }
+
+            "${context.packageName}.${CallkitConstants.ACTION_CALL_HELD}" -> {
+                try {
+                    sendEventFlutter(CallkitConstants.ACTION_CALL_HELD, data)
+                } catch (error: Exception) {
+                    Log.e(TAG, null, error)
+                }
+            }
+
+            "${context.packageName}.${CallkitConstants.ACTION_CALL_UNHELD}" -> {
+                try {
+                    sendEventFlutter(CallkitConstants.ACTION_CALL_UNHELD, data)
+                } catch (error: Exception) {
+                    Log.e(TAG, null, error)
+                }
+            }
         }
     }
     private fun sendEventFlutter(event: String, data: Bundle) {

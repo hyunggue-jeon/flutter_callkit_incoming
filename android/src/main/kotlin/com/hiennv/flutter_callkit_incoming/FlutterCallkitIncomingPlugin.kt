@@ -257,6 +257,11 @@ class FlutterCallkitIncomingPlugin : FlutterPlugin, MethodCallHandler, ActivityA
                             putAll(args as Map<String, Any>)
                         }
                     }
+                    val isOnHold = map["isOnHold"] as? Boolean ?: true
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        if (isOnHold) CallkitConnectionService.holdCall()
+                        else CallkitConnectionService.unholdCall()
+                    }
                     sendEvent(CallkitConstants.ACTION_CALL_TOGGLE_HOLD, map)
 
                     result.success(true)

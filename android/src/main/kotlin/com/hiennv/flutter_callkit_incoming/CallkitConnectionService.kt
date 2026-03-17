@@ -51,6 +51,20 @@ class CallkitConnectionService : ConnectionService() {
                 "isMuted" to state.isMuted
             )
         }
+
+        fun holdCall() {
+            activeConnection?.let {
+                it.setOnHold()
+                it.sendHeldBroadcast()
+            }
+        }
+
+        fun unholdCall() {
+            activeConnection?.let {
+                it.setActive()
+                it.sendUnheldBroadcast()
+            }
+        }
     }
     override fun onCreateIncomingConnection(
         connectionManagerPhoneAccount: PhoneAccountHandle?,
@@ -105,6 +119,7 @@ class CallkitConnection(private val context: Context, private val callData: Bund
             connectionProperties = PROPERTY_SELF_MANAGED
         }
         audioModeIsVoip = true
+        connectionCapabilities = CAPABILITY_HOLD or CAPABILITY_SUPPORT_HOLD
     }
     // Incoming 전용
     override fun onShowIncomingCallUi() {
@@ -163,6 +178,34 @@ class CallkitConnection(private val context: Context, private val callData: Bund
             val ctx = context
             ctx.sendBroadcast(
                 CallkitIncomingBroadcastReceiver.getIntentDecline(ctx, data)
+            )
+        }
+    }
+
+    // 시스템(Telecom)이 hold를 요청할 때 호출되는 콜백
+    override fun onHold() {
+        setOnHold()
+        sendHeldBroadcast()
+    }
+
+    // 시스템(Telecom)이 unhold를 요청할 때 호출되는 콜백
+    override fun onUnhold() {
+        setActive()
+        sendUnheldBroadcast()
+    }
+
+    fun sendHeldBroadcast() {
+        callData?.let { data ->
+            context.sendBroadcast(
+                CallkitIncomingBroadcastReceiver.getIntentHeldByCell(context, data)
+            )
+        }
+    }
+
+    fun sendUnheldBroadcast() {
+        callData?.let { data ->
+            context.sendBroadcast(
+                CallkitIncomingBroadcastReceiver.getIntentUnHeldByCell(context, data)
             )
         }
     }
