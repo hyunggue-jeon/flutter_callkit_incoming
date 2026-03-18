@@ -43,6 +43,8 @@ enum Event {
   actionCallToggleAudioSession,
   actionCallCustom,
   actionCallAudioStateChanged,
+  actionCallHeld,
+  actionCallUnheld,
 }
 
 /// Using extension for backward compatibility Dart SDK 2.17.0 and lower
@@ -81,6 +83,10 @@ extension EventX on Event {
         return 'com.hiennv.flutter_callkit_incoming.ACTION_CALL_CUSTOM';
       case Event.actionCallAudioStateChanged:
         return 'com.hiennv.flutter_callkit_incoming.ACTION_CALL_AUDIO_STATE_CHANGED';
+      case Event.actionCallHeld:
+        return 'com.hiennv.flutter_callkit_incoming.ACTION_CALL_HELD';
+      case Event.actionCallUnheld:
+        return 'com.hiennv.flutter_callkit_incoming.ACTION_CALL_UNHELD';
     }
   }
 }

@@ -243,8 +243,12 @@ class HomePageState extends State<HomePage> {
   Future<void> listenerEvent(void Function(CallEvent) callback) async {
     try {
       FlutterCallkitIncoming.onEvent.listen((event) async {
-        print('HOME: $event');
+        print('event: ${event!.event.name}');
         switch (event!.event) {
+        case Event.actionCallHeld:
+        break;
+        case Event.actionCallUnheld:
+        break;
           case Event.actionCallAudioStateChanged:
           break;
           case Event.actionCallIncoming:

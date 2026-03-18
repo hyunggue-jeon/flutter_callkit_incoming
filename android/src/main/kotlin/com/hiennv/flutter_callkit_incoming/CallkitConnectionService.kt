@@ -5,6 +5,8 @@ import android.content.Context
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.telecom.CallAudioState
 import android.telecom.Connection
 import android.telecom.ConnectionRequest
@@ -93,6 +95,44 @@ class CallkitConnectionService : ConnectionService() {
             activeConnection = this
         }
     }
+    // API 28+: native 전화 수신/발신 시 포커스 잃음 (권한 불필요)
+    @RequiresApi(Build.VERSION_CODES.P)
+    override fun onConnectionServiceFocusLost() {
+        Log.d("CallkitCSFocus", "onConnectionServiceFocusLost() called | activeConnection=${activeConnection} | state=${activeConnection?.state}")
+        activeConnection?.let {
+            if (it.state != Connection.STATE_HOLDING) {
+                Log.d("CallkitCSFocus", "FocusLost → setOnHold + sendHeldBroadcast")
+                it.setOnHold()
+                it.sendHeldBroadcast()
+            } else {
+                Log.d("CallkitCSFocus", "FocusLost → already HOLDING, skip")
+            }
+            // hold 설정 직후 onCallAudioStateChanged 버스트가 오므로
+            // 1초 후에 unhold 감지 활성화 (발신 종료 fallback용)
+            Handler(Looper.getMainLooper()).postDelayed({
+                Log.d("CallkitCSFocus", "FocusLost → enableUnholdDetection after delay")
+                it.enableUnholdDetection()
+            }, 1000)
+        } ?: Log.w("CallkitCSFocus", "FocusLost → activeConnection is NULL")
+        connectionServiceFocusReleased()
+    }
+
+    // API 28+: native 전화 종료 시 포커스 돌아옴 (수신 종료 시 동작)
+    @RequiresApi(Build.VERSION_CODES.P)
+    override fun onConnectionServiceFocusGained() {
+        Log.d("CallkitCSFocus", "onConnectionServiceFocusGained() called | activeConnection=${activeConnection} | state=${activeConnection?.state}")
+        activeConnection?.let {
+            it.disableUnholdDetection() // 이미 FocusGained로 처리하므로 fallback 비활성화
+            if (it.state == Connection.STATE_HOLDING) {
+                Log.d("CallkitCSFocus", "FocusGained → setActive + sendUnheldBroadcast")
+                it.setActive()
+                it.sendUnheldBroadcast()
+            } else {
+                Log.d("CallkitCSFocus", "FocusGained → state is NOT HOLDING (state=${it.state}), skip")
+            }
+        } ?: Log.w("CallkitCSFocus", "FocusGained → activeConnection is NULL")
+    }
+
     override fun onCreateIncomingConnectionFailed(
         connectionManagerPhoneAccount: PhoneAccountHandle?,
         request: ConnectionRequest?
@@ -111,8 +151,21 @@ class CallkitConnectionService : ConnectionService() {
 
 @RequiresApi(Build.VERSION_CODES.M)
 class CallkitConnection(private val context: Context, private val callData: Bundle?, private val isIncoming: Boolean) : Connection() {
-    
+
     private var notificationShown = false
+    // FocusGained가 오지 않는 발신 종료 케이스의 fallback 감지 플래그
+    @Volatile private var pendingUnholdDetection = false
+
+    fun enableUnholdDetection() {
+        Log.d("CallkitCSFocus", "enableUnholdDetection() | state=${state}")
+        if (state == Connection.STATE_HOLDING) {
+            pendingUnholdDetection = true
+        }
+    }
+
+    fun disableUnholdDetection() {
+        pendingUnholdDetection = false
+    }
 
      init {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
@@ -127,13 +180,22 @@ class CallkitConnection(private val context: Context, private val callData: Bund
     }
 
     override fun onCallAudioStateChanged(state: CallAudioState) {
-        
+
         if (isIncoming && state.route == CallAudioState.ROUTE_BLUETOOTH) {
             showNotificationIfNeeded()
         }
-        
-        Log.d("CallkitConnectionService","onCallAudioStateChanged route: ${state.route} callData: ${callData}")
-       
+
+        Log.d("CallkitConnectionService","onCallAudioStateChanged route: ${state.route} | connectionState=${this.state} | pendingUnhold=$pendingUnholdDetection")
+
+        // FocusGained가 오지 않는 발신 종료 케이스 fallback
+        if (pendingUnholdDetection && this.state == Connection.STATE_HOLDING) {
+            Log.d("CallkitCSFocus", "onCallAudioStateChanged fallback → unhold (native outgoing call ended)")
+            pendingUnholdDetection = false
+            setActive()
+            sendUnheldBroadcast()
+            return
+        }
+
          callData?.let { data ->
             val ctx = context
              val enriched = Bundle(data).apply {
@@ -145,7 +207,7 @@ class CallkitConnection(private val context: Context, private val callData: Bund
                 CallkitIncomingBroadcastReceiver.getIntentAudioState(ctx, enriched)
             )
         }
-        
+
     }
 
     override fun onAnswer() {
@@ -184,30 +246,36 @@ class CallkitConnection(private val context: Context, private val callData: Bund
 
     // 시스템(Telecom)이 hold를 요청할 때 호출되는 콜백
     override fun onHold() {
+        Log.d("CallkitCSFocus", "onHold() called (system callback)")
         setOnHold()
         sendHeldBroadcast()
     }
 
     // 시스템(Telecom)이 unhold를 요청할 때 호출되는 콜백
     override fun onUnhold() {
+        Log.d("CallkitCSFocus", "onUnhold() called (system callback)")
         setActive()
         sendUnheldBroadcast()
     }
 
     fun sendHeldBroadcast() {
+        Log.d("CallkitCSFocus", "sendHeldBroadcast() | callData=${callData != null}")
         callData?.let { data ->
             context.sendBroadcast(
                 CallkitIncomingBroadcastReceiver.getIntentHeldByCell(context, data)
             )
-        }
+            Log.d("CallkitCSFocus", "sendHeldBroadcast() → broadcast sent")
+        } ?: Log.w("CallkitCSFocus", "sendHeldBroadcast() → callData is NULL, broadcast NOT sent")
     }
 
     fun sendUnheldBroadcast() {
+        Log.d("CallkitCSFocus", "sendUnheldBroadcast() | callData=${callData != null}")
         callData?.let { data ->
             context.sendBroadcast(
                 CallkitIncomingBroadcastReceiver.getIntentUnHeldByCell(context, data)
             )
-        }
+            Log.d("CallkitCSFocus", "sendUnheldBroadcast() → broadcast sent")
+        } ?: Log.w("CallkitCSFocus", "sendUnheldBroadcast() → callData is NULL, broadcast NOT sent")
     }
 
     override fun onDisconnect() {
