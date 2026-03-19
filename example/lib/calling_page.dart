@@ -22,6 +22,21 @@ class CallingPageState extends State<CallingPage> {
 
   Timer? _timer;
   int _start = 0;
+  int? _audioRoute; // 현재 오디오 라우트
+  StreamSubscription? _eventSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _eventSub = FlutterCallkitIncoming.onEvent.listen((event) {
+      if (!mounted) return;
+      if (event?.event == Event.actionCallAudioStateChanged) {
+        setState(() {
+          _audioRoute = event!.body['audioRoute'] as int?;
+        });
+      }
+    });
+  }
 
   void startTimer() {
     const oneSec = Duration(seconds: 1);
@@ -81,6 +96,21 @@ class CallingPageState extends State<CallingPage> {
                 },
                 child: const Text('Fake Connected Call'),
               ),
+              const SizedBox(height: 24),
+              Text('Audio Route: ${_audioRouteLabel(_audioRoute)}',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _audioRouteButton('Earpiece', 1, Icons.hearing),
+                  const SizedBox(width: 8),
+                  _audioRouteButton('Speaker', 8, Icons.volume_up),
+                  const SizedBox(width: 8),
+                  _audioRouteButton('Bluetooth', 2, Icons.bluetooth_audio),
+                ],
+              ),
+              const SizedBox(height: 24),
               TextButton(
                 style: ButtonStyle(
                   foregroundColor:
@@ -104,6 +134,33 @@ class CallingPageState extends State<CallingPage> {
   }
 
 
+  // 요청만 하고 반환 - UI는 actionCallAudioStateChanged 이벤트로 업데이트
+  Future<void> changeAudioRoute(int route) async {
+    await FlutterCallkitIncoming.setAudioRoute(route);
+  }
+
+  Widget _audioRouteButton(String label, int route, IconData icon) {
+    final isActive = _audioRoute == route;
+    return ElevatedButton.icon(
+      icon: Icon(icon),
+      label: Text(label),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: isActive ? Colors.blue : null,
+        foregroundColor: isActive ? Colors.white : null,
+      ),
+      onPressed: () => changeAudioRoute(route),
+    );
+  }
+
+  String _audioRouteLabel(int? route) {
+    switch (route) {
+      case 1: return 'Earpiece';
+      case 2: return 'Bluetooth';
+      case 8: return 'Speaker';
+      default: return 'Unknown';
+    }
+  }
+
   Future<void> makeFakeConnectedCall(id) async {
     await FlutterCallkitIncoming.setCallConnected(id);
   }
@@ -120,8 +177,9 @@ class CallingPageState extends State<CallingPage> {
 
   @override
   void dispose() {
-    super.dispose();
     _timer?.cancel();
+    _eventSub?.cancel();
     if (calling != null) FlutterCallkitIncoming.endCall(calling!.id!);
+    super.dispose();
   }
 }

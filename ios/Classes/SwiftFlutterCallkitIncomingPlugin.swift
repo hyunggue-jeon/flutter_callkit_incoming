@@ -29,6 +29,8 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     static let ACTION_CALL_TOGGLE_DMTF = "com.hiennv.flutter_callkit_incoming.ACTION_CALL_TOGGLE_DMTF"
     static let ACTION_CALL_TOGGLE_GROUP = "com.hiennv.flutter_callkit_incoming.ACTION_CALL_TOGGLE_GROUP"
     static let ACTION_CALL_TOGGLE_AUDIO_SESSION = "com.hiennv.flutter_callkit_incoming.ACTION_CALL_TOGGLE_AUDIO_SESSION"
+    static let ACTION_CALL_HELD = "com.hiennv.flutter_callkit_incoming.ACTION_CALL_HELD"
+    static let ACTION_CALL_UNHELD = "com.hiennv.flutter_callkit_incoming.ACTION_CALL_UNHELD"
     
     @objc public private(set) static var sharedInstance: SwiftFlutterCallkitIncomingPlugin!
     
@@ -40,6 +42,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     
     private var outgoingCall : Call?
     private var answerCall : Call?
+    private var isHeldBySystem: Bool = false // didDeactivate로 hold된 상태 추적
     
     // 🗑️ Removed global state variables
     // private var data: Data?
@@ -788,6 +791,16 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     }
     
     public func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
+        print("[CallkitAudio] didActivate | answerCall=\(String(describing: self.answerCall?.uuid)) hasConnected=\(self.answerCall?.hasConnected ?? false) | outgoingCall=\(String(describing: self.outgoingCall?.uuid)) hasConnected=\(self.outgoingCall?.hasConnected ?? false) | isHeldBySystem=\(isHeldBySystem)")
+        print("[CallkitAudio] didActivate | audioSession.category=\(audioSession.category.rawValue) mode=\(audioSession.mode.rawValue)")
+
+        // 시스템 hold(일반 전화)에서 복귀 → actionCallUnheld 전송
+        if isHeldBySystem {
+            isHeldBySystem = false
+            let callData = self.answerCall?.data.toJSON() ?? self.outgoingCall?.data.toJSON()
+            print("[CallkitAudio] didActivate → isHeldBySystem was true, sending ACTION_CALL_UNHELD")
+            self.sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_UNHELD, callData)
+        }
 
         self.sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_TOGGLE_AUDIO_SESSION, [ "isActivate": true ])
 
@@ -796,48 +809,56 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         }
 
         if(self.answerCall?.hasConnected ?? false){
+            print("[CallkitAudio] didActivate → answerCall already connected, sendInterruption only")
             sendDefaultAudioInterruptionNotificationToStartAudioResource()
             return
         }
         if(self.outgoingCall?.hasConnected ?? false){
+            print("[CallkitAudio] didActivate → outgoingCall already connected, sendInterruption only")
             sendDefaultAudioInterruptionNotificationToStartAudioResource()
             return
         }
         self.outgoingCall?.startCall(withAudioSession: audioSession) {success in
+            print("[CallkitAudio] didActivate → outgoingCall.startCall success=\(success)")
             if success {
                 self.outgoingCall?.startAudio()
             }
         }
         self.answerCall?.ansCall(withAudioSession: audioSession) { success in
+            print("[CallkitAudio] didActivate → answerCall.ansCall success=\(success)")
             if success{
                 self.answerCall?.startAudio()
             }
         }
         sendDefaultAudioInterruptionNotificationToStartAudioResource()
-        
-        // ✅ Configure based on active call data if available
+
         if let data = self.answerCall?.data ?? self.outgoingCall?.data {
+            print("[CallkitAudio] didActivate → configureAudioSession with call data")
             configureAudioSession(data: data)
         } else {
-             // Fallback if no active call (shouldn't happen in didActivate)
-             // configureAudioSession(data: nil) 
+            print("[CallkitAudio] didActivate → no active call data found (재활성화 케이스일 수 있음)")
         }
-
-        
     }
-    
+
     public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
+        print("[CallkitAudio] didDeactivate | answerCall.isOnHold=\(self.answerCall?.isOnHold ?? false) | outgoingCall.isOnHold=\(self.outgoingCall?.isOnHold ?? false)")
+        print("[CallkitAudio] didDeactivate | answerCall=\(String(describing: self.answerCall?.uuid)) | outgoingCall=\(String(describing: self.outgoingCall?.uuid))")
+
         self.sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_TOGGLE_AUDIO_SESSION, [ "isActivate": false ])
-        // ... (No changes needed here as it doesn't use self.data)
+
         if let appDelegate = UIApplication.shared.delegate as? CallkitIncomingAppDelegate {
             appDelegate.didDeactivateAudioSession(audioSession)
         }
 
-        if self.outgoingCall?.isOnHold ?? false || self.answerCall?.isOnHold ?? false{
-            print("Call is on hold")
+        if self.outgoingCall?.isOnHold ?? false || self.answerCall?.isOnHold ?? false {
+            // 시스템(일반 전화)에 의한 hold → actionCallHeld 전송
+            isHeldBySystem = true
+            let callData = self.answerCall?.data.toJSON() ?? self.outgoingCall?.data.toJSON()
+            print("[CallkitAudio] didDeactivate → call is on hold, sending ACTION_CALL_HELD")
+            self.sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_HELD, callData)
             return
         }
-        
+        print("[CallkitAudio] didDeactivate → call ended or interrupted")
     }
     
     // ... (Rest of helper methods like sendMuteEvent remain the same) ...

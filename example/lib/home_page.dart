@@ -27,7 +27,6 @@ class HomePageState extends State<HomePage> {
   late final Uuid _uuid;
   String? _currentUuid;
   String textEvents = "";
-  
   @override
   void initState() {
     super.initState();
@@ -249,8 +248,8 @@ class HomePageState extends State<HomePage> {
         break;
         case Event.actionCallUnheld:
         break;
-          case Event.actionCallAudioStateChanged:
-          break;
+            case Event.actionCallAudioStateChanged:
+            break;
           case Event.actionCallIncoming:
             // TODO: received an incoming call
             break;

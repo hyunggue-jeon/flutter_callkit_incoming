@@ -193,10 +193,11 @@ class CallkitConnection(private val context: Context, private val callData: Bund
             pendingUnholdDetection = false
             setActive()
             sendUnheldBroadcast()
+            // hold 상태에서의 오디오 이벤트는 의미없으므로 여기서 종료
             return
         }
 
-         callData?.let { data ->
+        callData?.let { data ->
             val ctx = context
              val enriched = Bundle(data).apply {
                 putInt("audioRoute", state.route)
