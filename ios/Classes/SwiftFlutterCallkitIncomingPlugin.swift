@@ -834,6 +834,15 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             appDelegate.didActivateAudioSession(audioSession)
         }
 
+        // 항상 먼저 configureAudioSession 호출
+        // early return 이전에 위치해야 일반 전화 종료 후 재활성화 케이스도 처리됨
+        if let data = self.answerCall?.data ?? self.outgoingCall?.data {
+            print("[CallkitAudio] didActivate → configureAudioSession with call data")
+            configureAudioSession(data: data)
+        } else {
+            print("[CallkitAudio] didActivate → no active call data found")
+        }
+
         if(self.answerCall?.hasConnected ?? false){
             print("[CallkitAudio] didActivate → answerCall already connected, sendInterruption only")
             sendDefaultAudioInterruptionNotificationToStartAudioResource()
@@ -857,13 +866,6 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             }
         }
         sendDefaultAudioInterruptionNotificationToStartAudioResource()
-
-        if let data = self.answerCall?.data ?? self.outgoingCall?.data {
-            print("[CallkitAudio] didActivate → configureAudioSession with call data")
-            configureAudioSession(data: data)
-        } else {
-            print("[CallkitAudio] didActivate → no active call data found (재활성화 케이스일 수 있음)")
-        }
     }
 
     public func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
