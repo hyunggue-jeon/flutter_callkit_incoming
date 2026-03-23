@@ -465,18 +465,21 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     func endCallNotExist(_ data: Data) {
         let targetUUID = data.uuid
         DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(data.duration)) {
-            print("[SwiftFlutterCallkitIncomingPlugin] ⏰ endCallNotExist timer fired - UUID: \(targetUUID)")
-            // ✅ Logic changed: Use local data, lookup call by UUID
-            if let uuid = UUID(uuidString: data.uuid),
-               let call = self.callManager.callWithUUID(uuid: uuid) {
-                
-                // If call exists and is NOT answered and NOT outgoing, timeout.
-                let isAccepted = self.answerCall?.uuid == uuid
-                let isOutgoing = self.outgoingCall?.uuid == uuid
-                
-                if !isAccepted && !isOutgoing {
-                    self.callEndTimeout(data)
-                }
+            guard let uuid = UUID(uuidString: targetUUID),
+                  let call = self.callManager.callWithUUID(uuid: uuid) else {
+                print("[SwiftFlutterCallkitIncomingPlugin] ⏰ endCallNotExist - UUID: \(targetUUID) not in callManager, skip")
+                return
+            }
+
+            // answerCall 참조 대신 call 객체의 isAccepted/isOutGoing 직접 체크
+            // answerCall이 다른 콜로 교체되어도 올바르게 판단
+            let isAccepted = call.data.isAccepted
+            let isOutgoing = call.isOutGoing
+
+            print("[SwiftFlutterCallkitIncomingPlugin] ⏰ endCallNotExist - UUID: \(targetUUID) isAccepted=\(isAccepted) isOutgoing=\(isOutgoing)")
+
+            if !isAccepted && !isOutgoing {
+                self.callEndTimeout(data)
             }
         }
     }
@@ -663,7 +666,16 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             action.fail()
             return
         }
-        
+
+        // 기존 활성 콜이 다른 UUID이면 참조 미리 클리어
+        // (실제 종료는 performEndCallAction이 담당, 여기서는 참조만 정리)
+        let existingCall = self.answerCall ?? self.outgoingCall
+        if let existing = existingCall, existing.uuid != action.callUUID {
+            print("[SwiftFlutterCallkitIncomingPlugin] AnswerCall: replacing existing call \(existing.uuid) with \(action.callUUID)")
+            if self.answerCall?.uuid == existing.uuid { self.answerCall = nil }
+            if self.outgoingCall?.uuid == existing.uuid { self.outgoingCall = nil }
+        }
+
         // ✅ Use call.data
         self.configureAudioSession(data: call.data)
         DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(1200)) {
