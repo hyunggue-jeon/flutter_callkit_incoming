@@ -667,18 +667,19 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             return
         }
 
-        // 기존 활성 콜이 다른 UUID이면 ENDED를 먼저 전송하고 참조 클리어
+        // 기존 활성 콜이 다른 UUID이면 ENDED를 먼저 전송 후 실제 종료 요청
         // → ENDED(call1) → ACCEPT(call2) 순서 보장
-        // callManager에서는 제거하지 않음 (performEndCallAction이 action.fulfill() 처리)
         let existingCall = self.answerCall ?? self.outgoingCall
         if let existing = existingCall, existing.uuid != action.callUUID {
-            print("[SwiftFlutterCallkitIncomingPlugin] AnswerCall: sending ENDED for existing call \(existing.uuid) before ACCEPT for \(action.callUUID)")
-            existing.endCall()  // hasEnded = true 마킹 → performEndCallAction 중복 전송 방지
+            print("[SwiftFlutterCallkitIncomingPlugin] AnswerCall: ending existing call \(existing.uuid) before ACCEPT for \(action.callUUID)")
+            existing.endCall()  // hasEnded = true 마킹 → performEndCallAction 중복 이벤트 방지
             if existing.data.isAccepted || existing.isOutGoing {
                 sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_ENDED, existing.data.toJSON())
             }
             if self.answerCall?.uuid == existing.uuid { self.answerCall = nil }
             if self.outgoingCall?.uuid == existing.uuid { self.outgoingCall = nil }
+            // CallKit 시스템에서도 실제로 종료 (이게 없으면 call이 hold 상태로 남음)
+            self.callManager.endCall(call: existing)
         }
 
         // ✅ Use call.data
