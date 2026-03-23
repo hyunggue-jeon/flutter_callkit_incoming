@@ -667,11 +667,16 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             return
         }
 
-        // 기존 활성 콜이 다른 UUID이면 참조 미리 클리어
-        // (실제 종료는 performEndCallAction이 담당, 여기서는 참조만 정리)
+        // 기존 활성 콜이 다른 UUID이면 ENDED를 먼저 전송하고 참조 클리어
+        // → ENDED(call1) → ACCEPT(call2) 순서 보장
+        // callManager에서는 제거하지 않음 (performEndCallAction이 action.fulfill() 처리)
         let existingCall = self.answerCall ?? self.outgoingCall
         if let existing = existingCall, existing.uuid != action.callUUID {
-            print("[SwiftFlutterCallkitIncomingPlugin] AnswerCall: replacing existing call \(existing.uuid) with \(action.callUUID)")
+            print("[SwiftFlutterCallkitIncomingPlugin] AnswerCall: sending ENDED for existing call \(existing.uuid) before ACCEPT for \(action.callUUID)")
+            existing.endCall()  // hasEnded = true 마킹 → performEndCallAction 중복 전송 방지
+            if existing.data.isAccepted || existing.isOutGoing {
+                sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_ENDED, existing.data.toJSON())
+            }
             if self.answerCall?.uuid == existing.uuid { self.answerCall = nil }
             if self.outgoingCall?.uuid == existing.uuid { self.outgoingCall = nil }
         }
@@ -708,18 +713,26 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         }
         
         
+        // performAnswerCallAction에서 이미 처리됐는지 체크 (중복 이벤트 방지)
+        let alreadyEnded = call.hasEnded
         call.endCall()
-        
+
         let isAnsweredCall = self.answerCall?.uuid == call.uuid
         let isOutgoingCall = self.outgoingCall?.uuid == call.uuid
-        
+
         // 참조 클리어
         if isAnsweredCall { self.answerCall = nil }
         if isOutgoingCall { self.outgoingCall = nil }
-        
+
         self.callManager.removeCall(call)
         action.fulfill()
-        
+
+        // 이미 ENDED를 보낸 경우 중복 전송 방지
+        if alreadyEnded {
+            print("[SwiftFlutterCallkitIncomingPlugin] ❌ CXEndCallAction - already reported, skip event")
+            return
+        }
+
         // 판별: 수신 수락 이력 or 발신이었으면 → ended, 아니면 → decline
         if call.data.isAccepted || call.isOutGoing {
             sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_ENDED, call.data.toJSON())
