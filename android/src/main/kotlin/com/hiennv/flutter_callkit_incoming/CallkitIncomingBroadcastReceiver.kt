@@ -212,6 +212,10 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                     notificationManager?.showMissCallNotification(data)
                     sendEventFlutter(CallkitConstants.ACTION_CALL_TIMEOUT, data)
                     removeCall(context, Data.fromBundle(data))
+                    // Telecom Connection 해제 - 없으면 다음 수신전화가 createConnectionFailed
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        CallkitConnectionService.disconnectCurrentConnection()
+                    }
                 } catch (error: Exception) {
                     Log.e(TAG, null, error)
                 }
