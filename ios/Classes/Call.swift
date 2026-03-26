@@ -193,11 +193,11 @@ public class Call: NSObject {
         self.audioSessionPreferredIOBufferDuration = 0.005
         
         self.isShowMissedCallNotification = true
-        self.missedNotificationSubtitle = "Missed Call"
+        self.missedNotificationSubtitle = "missed_call_subtitle"
         self.missedNotificationCallbackText = "Call back"
         self.isShowCallback = true
     }
-    
+
     @objc public convenience init(args: NSDictionary) {
         var argsConvert = [String: Any?]()
         for (key, value) in args {
@@ -256,12 +256,12 @@ public class Call: NSObject {
         }
         if let missedCallNotification = args["missedCallNotification"] as? [String: Any] {
             self.isShowMissedCallNotification = missedCallNotification["showNotification"] as? Bool ?? true
-            self.missedNotificationSubtitle = missedCallNotification["subtitle"] as? String ?? "Missed Call"
+            self.missedNotificationSubtitle = missedCallNotification["subtitle"] as? String ?? "missed_call_subtitle"
             self.missedNotificationCallbackText = missedCallNotification["callbackText"] as? String ?? "Call back"
             self.isShowCallback = missedCallNotification["isShowCallback"] as? Bool ?? true
         }else {
             self.isShowMissedCallNotification = true
-            self.missedNotificationSubtitle = "Missed Call"
+            self.missedNotificationSubtitle = "missed_call_subtitle"
             self.missedNotificationCallbackText = "Call back"
             self.isShowCallback = true
         }

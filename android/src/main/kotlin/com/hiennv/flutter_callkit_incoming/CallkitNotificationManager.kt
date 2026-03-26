@@ -433,9 +433,8 @@ class CallkitNotificationManager(
         notificationMissingBuilder?.setWhen(System.currentTimeMillis())
         val textMissedCall = data.getString(CallkitConstants.EXTRA_CALLKIT_MISSED_CALL_SUBTITLE, "")
         notificationMissingBuilder?.setSubText(
-            if (TextUtils.isEmpty(textMissedCall)) context.getString(
-                R.string.text_missed_call
-            ) else resolveString(textMissedCall)
+            if (TextUtils.isEmpty(textMissedCall)) resolveString("missed_call_subtitle")
+            else resolveString(textMissedCall)
         )
         notificationMissingBuilder?.setSmallIcon(smallIcon)
         notificationMissingBuilder?.setOnlyAlertOnce(true)
@@ -852,8 +851,14 @@ class CallkitNotificationManager(
 
     private fun resolveString(value: String): String {
         if (value.isEmpty()) return value
-        val resId = context.resources.getIdentifier(value, "string", context.packageName)
-        return if (resId != 0) context.getString(resId) else value
+        // 1. 호스트 앱의 strings.xml에서 키 조회 (앱 자체 번역 우선)
+        val appResId = context.resources.getIdentifier(value, "string", context.packageName)
+        if (appResId != 0) return context.getString(appResId)
+        // 2. 이 라이브러리의 strings.xml에서 키 조회 (기본값 fallback)
+        val libResId = context.resources.getIdentifier(value, "string", "com.hiennv.flutter_callkit_incoming")
+        if (libResId != 0) return context.getString(libResId)
+        // 3. 리터럴 문자열 그대로 사용
+        return value
     }
 
     fun clearMissCallNotification(data: Bundle) {
