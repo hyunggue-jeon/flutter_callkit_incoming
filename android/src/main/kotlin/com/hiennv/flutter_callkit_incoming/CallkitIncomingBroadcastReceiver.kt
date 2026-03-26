@@ -231,6 +231,14 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
                 }
             }
 
+            "${context.packageName}.${CallkitConstants.ACTION_CALL_MISSED}" -> {
+                try {
+                    sendEventFlutter(CallkitConstants.ACTION_CALL_MISSED, data)
+                } catch (error: Exception) {
+                    Log.e(TAG, null, error)
+                }
+            }
+
             "${context.packageName}.${CallkitConstants.ACTION_CALL_CALLBACK}" -> {
                 try {
                     getCallkitNotificationManager()?.clearMissCallNotification(data)

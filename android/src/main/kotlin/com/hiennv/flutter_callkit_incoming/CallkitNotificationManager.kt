@@ -562,7 +562,7 @@ class CallkitNotificationManager(
         }
         notificationMissingBuilder?.setSound(missedCallSound)
         notificationMissingBuilder?.setContentIntent(
-            getAppPendingIntent(
+            getMissedCallTapPendingIntent(
                 missedNotificationId, data
             )
         )
@@ -977,6 +977,13 @@ class CallkitNotificationManager(
     private fun getAppPendingIntent(id: Int, data: Bundle): PendingIntent {
         val intent: Intent? = AppUtils.getAppIntent(context, data = data)
         return PendingIntent.getActivity(context, id, intent, getFlagPendingIntent())
+    }
+
+    private fun getMissedCallTapPendingIntent(id: Int, data: Bundle): PendingIntent {
+        val intentTransparent = TransparentActivity.getIntent(
+            context, CallkitConstants.ACTION_CALL_MISSED, data
+        )
+        return PendingIntent.getActivity(context, id, intentTransparent, getFlagPendingIntent())
     }
 
 
