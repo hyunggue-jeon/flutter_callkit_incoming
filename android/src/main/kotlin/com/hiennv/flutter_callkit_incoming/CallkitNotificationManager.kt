@@ -435,7 +435,7 @@ class CallkitNotificationManager(
         notificationMissingBuilder?.setSubText(
             if (TextUtils.isEmpty(textMissedCall)) context.getString(
                 R.string.text_missed_call
-            ) else textMissedCall
+            ) else resolveString(textMissedCall)
         )
         notificationMissingBuilder?.setSmallIcon(smallIcon)
         notificationMissingBuilder?.setOnlyAlertOnce(true)
@@ -483,7 +483,7 @@ class CallkitNotificationManager(
                 data.getString(CallkitConstants.EXTRA_CALLKIT_MISSED_CALL_CALLBACK_TEXT, "")
             notificationMissingViews?.setTextViewText(
                 R.id.tvCallback,
-                if (TextUtils.isEmpty(textCallback)) context.getString(R.string.text_call_back) else textCallback
+                if (TextUtils.isEmpty(textCallback)) context.getString(R.string.text_call_back) else resolveString(textCallback)
             )
 
             var avatarUrl = data.getString(CallkitConstants.EXTRA_CALLKIT_AVATAR, "")
@@ -550,7 +550,7 @@ class CallkitNotificationManager(
                     data.getString(CallkitConstants.EXTRA_CALLKIT_MISSED_CALL_CALLBACK_TEXT, "")
                 val callbackAction: NotificationCompat.Action = NotificationCompat.Action.Builder(
                     R.drawable.ic_accept,
-                    if (TextUtils.isEmpty(textCallback)) context.getString(R.string.text_call_back) else textCallback,
+                    if (TextUtils.isEmpty(textCallback)) context.getString(R.string.text_call_back) else resolveString(textCallback),
                     getCallbackPendingIntent(missedNotificationId, data)
                 ).build()
                 notificationMissingBuilder?.addAction(callbackAction)
@@ -608,7 +608,7 @@ class CallkitNotificationManager(
         notificationOngoingBuilder?.setSubText(
             if (TextUtils.isEmpty(textCalling)) context.getString(
                 R.string.text_calling
-            ) else textCalling
+            ) else resolveString(textCalling)
         )
         notificationOngoingBuilder?.setOngoing(true)
         notificationOngoingBuilder?.setAutoCancel(false)
@@ -640,7 +640,7 @@ class CallkitNotificationManager(
                 callStyle.setVerificationText(
                     if (TextUtils.isEmpty(textCalling)) context.getString(
                         R.string.text_calling
-                    ) else textCalling
+                    ) else resolveString(textCalling)
                 )
                 notificationOngoingBuilder?.setStyle(callStyle)
 
@@ -848,6 +848,12 @@ class CallkitNotificationManager(
             targetOnGoingAvatarCustom?.isCancelled = true
             targetOnGoingAvatarCustom = null
         }
+    }
+
+    private fun resolveString(value: String): String {
+        if (value.isEmpty()) return value
+        val resId = context.resources.getIdentifier(value, "string", context.packageName)
+        return if (resId != 0) context.getString(resId) else value
     }
 
     fun clearMissCallNotification(data: Bundle) {

@@ -277,7 +277,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         // self.isFromPushKit = fromPushKit // Removed
         
         if(data.isShowMissedCallNotification){
-            CallkitNotificationManager.shared.addNotificationCategory(data.missedNotificationCallbackText)
+            CallkitNotificationManager.shared.addNotificationCategory(localizedString(data.missedNotificationCallbackText))
         }
         
         var handle: CXHandle?
@@ -316,7 +316,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         // 🗑️ Removed self.data = data
         
         if(data.isShowMissedCallNotification){
-            CallkitNotificationManager.shared.addNotificationCategory(data.missedNotificationCallbackText)
+            CallkitNotificationManager.shared.addNotificationCategory(localizedString(data.missedNotificationCallbackText))
         }
         
         var handle: CXHandle?
@@ -908,6 +908,10 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         CallkitNotificationManager.shared.requestNotificationPermission(map)
     }
     
+    private func localizedString(_ key: String) -> String {
+        return NSLocalizedString(key, bundle: Bundle.main, comment: "")
+    }
+
     private func showMissedCallNotification(_ data: Data) {
         if(!data.isShowMissedCallNotification){
             return
@@ -915,7 +919,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         
         let content = UNMutableNotificationContent()
         content.title = "\(data.nameCaller)"
-        content.body = "\(data.missedNotificationSubtitle)"
+        content.body = localizedString(data.missedNotificationSubtitle)
         content.sound = UNNotificationSound.default
         content.categoryIdentifier = "MISSED_CALL_CATEGORY"
         content.userInfo = data.toJSON()
