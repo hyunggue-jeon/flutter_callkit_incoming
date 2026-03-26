@@ -233,6 +233,7 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
 
             "${context.packageName}.${CallkitConstants.ACTION_CALL_MISSED}" -> {
                 try {
+                    saveMissedCallTap(context, data)
                     sendEventFlutter(CallkitConstants.ACTION_CALL_MISSED, data)
                 } catch (error: Exception) {
                     Log.e(TAG, null, error)
@@ -276,6 +277,18 @@ class CallkitIncomingBroadcastReceiver : BroadcastReceiver() {
             }
         }
     }
+    private fun saveMissedCallTap(context: Context, data: Bundle) {
+        val json = Utils.getGsonInstance().writeValueAsString(mapOf(
+            "id" to data.getString(CallkitConstants.EXTRA_CALLKIT_ID, ""),
+            "nameCaller" to data.getString(CallkitConstants.EXTRA_CALLKIT_NAME_CALLER, ""),
+            "avatar" to data.getString(CallkitConstants.EXTRA_CALLKIT_AVATAR, ""),
+            "number" to data.getString(CallkitConstants.EXTRA_CALLKIT_HANDLE, ""),
+            "type" to data.getInt(CallkitConstants.EXTRA_CALLKIT_TYPE, 0),
+            "extra" to data.getSerializable(CallkitConstants.EXTRA_CALLKIT_EXTRA)
+        ))
+        putString(context, "INITIAL_MISSED_CALL_TAP", json)
+    }
+
     private fun sendEventFlutter(event: String, data: Bundle) {
         if (silenceEvents) return
 

@@ -46,9 +46,15 @@ import flutter_callkit_incoming
     override func userNotificationCenter(_ center: UNUserNotificationCenter,
                                          didReceive response: UNNotificationResponse,
                                          withCompletionHandler completionHandler: @escaping () -> Void) {
+        let data = response.notification.request.content.userInfo as? [String: Any]
+        let isMissedCall = response.notification.request.content.categoryIdentifier == "MISSED_CALL_CATEGORY"
+
         if response.actionIdentifier == CallkitNotificationManager.CALLBACK_ACTION {
-            let data = response.notification.request.content.userInfo as? [String: Any]
+            // "전화 걸기" 버튼 탭
             SwiftFlutterCallkitIncomingPlugin.sharedInstance?.sendCallbackEvent(data)
+        } else if response.actionIdentifier == UNNotificationDefaultActionIdentifier && isMissedCall {
+            // 알림 body 탭
+            SwiftFlutterCallkitIncomingPlugin.sharedInstance?.sendMissedCallEvent(data)
         }
         completionHandler()
     }

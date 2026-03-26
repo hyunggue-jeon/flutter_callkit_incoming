@@ -31,6 +31,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     static let ACTION_CALL_TOGGLE_AUDIO_SESSION = "com.hiennv.flutter_callkit_incoming.ACTION_CALL_TOGGLE_AUDIO_SESSION"
     static let ACTION_CALL_HELD = "com.hiennv.flutter_callkit_incoming.ACTION_CALL_HELD"
     static let ACTION_CALL_UNHELD = "com.hiennv.flutter_callkit_incoming.ACTION_CALL_UNHELD"
+    static let ACTION_CALL_MISSED = "com.hiennv.flutter_callkit_incoming.ACTION_CALL_MISSED"
     
     @objc public private(set) static var sharedInstance: SwiftFlutterCallkitIncomingPlugin!
     
@@ -902,6 +903,10 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     
     @objc public func sendCallbackEvent(_ data: [String: Any]?) {
         self.sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_CALLBACK, data)
+    }
+
+    @objc public func sendMissedCallEvent(_ data: [String: Any]?) {
+        self.sendEvent(SwiftFlutterCallkitIncomingPlugin.ACTION_CALL_MISSED, data)
     }
     
     private func requestNotificationPermission(_ map: [String: Any]) {

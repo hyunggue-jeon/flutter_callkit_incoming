@@ -45,9 +45,16 @@ class FlutterCallkitIncomingPlugin : FlutterPlugin, MethodCallHandler, ActivityA
         private val eventHandlers = mutableListOf<WeakReference<EventCallbackHandler>>()
         private val eventCallbacks = mutableListOf<WeakReference<CallkitEventCallback>>()
 
+        // Flutter 엔진이 아직 없을 때(앱 terminated cold start) 발생한 이벤트를 보관
+        private val staticEventQueue = mutableListOf<Map<String, Any?>>()
+
         fun sendEvent(event: String, body: Map<String, Any?>) {
-            eventHandlers.reapCollection().forEach {
-                it.get()?.send(event, body)
+            val handlers = eventHandlers.reapCollection().mapNotNull { it.get() }
+            if (handlers.isEmpty()) {
+                // 핸들러가 없음 = Flutter 엔진 미시작 → static 큐에 보관
+                staticEventQueue.add(mapOf("event" to event, "body" to body))
+            } else {
+                handlers.forEach { it.send(event, body) }
             }
         }
 
@@ -112,6 +119,10 @@ class FlutterCallkitIncomingPlugin : FlutterPlugin, MethodCallHandler, ActivityA
             val events = EventChannel(binaryMessenger, "flutter_callkit_incoming_events")
             eventChannels[binaryMessenger] = events
             val handler = EventCallbackHandler()
+            // static 큐에 쌓인 이벤트(앱 종료 상태에서 발생)를 핸들러로 이전
+            // onListen() 호출 시 한꺼번에 flush 됨
+            handler.enqueueAll(staticEventQueue)
+            staticEventQueue.clear()
             eventHandlers.add(WeakReference(handler))
             events.setStreamHandler(handler)
 
@@ -341,6 +352,18 @@ class FlutterCallkitIncomingPlugin : FlutterPlugin, MethodCallHandler, ActivityA
                     result.success(getDataActiveCallsForFlutter(context))
                 }
 
+                "getInitialMissedCall" -> {
+                    val json = getString(context, "INITIAL_MISSED_CALL_TAP")
+                    if (!json.isNullOrEmpty()) {
+                        remove(context, "INITIAL_MISSED_CALL_TAP")
+                        val map = Utils.getGsonInstance()
+                            .readValue(json, object : com.fasterxml.jackson.core.type.TypeReference<Map<String, Any?>>() {})
+                        result.success(map)
+                    } else {
+                        result.success(null)
+                    }
+                }
+
                 "getDevicePushTokenVoIP" -> {
                     result.success("")
                 }
@@ -440,9 +463,18 @@ class FlutterCallkitIncomingPlugin : FlutterPlugin, MethodCallHandler, ActivityA
     class EventCallbackHandler : EventChannel.StreamHandler {
 
         private var eventSink: EventChannel.EventSink? = null
+        private val queuedEvents = mutableListOf<Map<String, Any?>>()
+
+        fun enqueueAll(events: List<Map<String, Any?>>) {
+            queuedEvents.addAll(events)
+        }
 
         override fun onListen(arguments: Any?, sink: EventChannel.EventSink) {
             eventSink = sink
+            Handler(Looper.getMainLooper()).post {
+                queuedEvents.forEach { sink.success(it) }
+                queuedEvents.clear()
+            }
         }
 
         fun send(event: String, body: Map<String, Any?>) {
@@ -451,7 +483,12 @@ class FlutterCallkitIncomingPlugin : FlutterPlugin, MethodCallHandler, ActivityA
                 "body" to body
             )
             Handler(Looper.getMainLooper()).post {
-                eventSink?.success(data)
+                val sink = eventSink
+                if (sink != null) {
+                    sink.success(data)
+                } else {
+                    queuedEvents.add(data)
+                }
             }
         }
 

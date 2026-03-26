@@ -153,6 +153,16 @@ class FlutterCallkitIncoming {
     return await _channel.invokeMethod("canUseFullScreenIntent");
   }
 
+  /// Get the missed call data if the app was launched by tapping a missed call notification.
+  /// Similar to FirebaseMessaging.instance.getInitialMessage().
+  /// Only Android. Returns null if the app was not launched from a missed call notification.
+  /// Clears the data after reading (one-time read).
+  static Future<Map<String, dynamic>?> getInitialMissedCall() async {
+    final data = await _channel.invokeMethod("getInitialMissedCall");
+    if (data == null) return null;
+    return Map<String, dynamic>.from(data);
+  }
+
   static CallEvent? _receiveCallEvent(dynamic data) {
     Event? event;
     Map<String, dynamic> body = {};
