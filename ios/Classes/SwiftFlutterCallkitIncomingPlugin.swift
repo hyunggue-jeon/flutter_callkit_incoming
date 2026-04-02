@@ -142,6 +142,15 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
             }
             result(true)
             break
+        case "declineWithMissedNotification":
+            guard let args = call.arguments as? [String: Any] else {
+                result(true)
+                return
+            }
+            let data = Data(args: args)
+            self.declineWithMissedNotification(data)
+            result(true)
+            break
         case "startCall":
             guard let args = call.arguments else {
                 result(true)
@@ -915,6 +924,30 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
     
     private func localizedString(_ key: String) -> String {
         return NSLocalizedString(key, bundle: Bundle.main, comment: "")
+    }
+
+    private func declineWithMissedNotification(_ data: Data) {
+        guard let uuid = UUID(uuidString: data.uuid) else { return }
+
+        // sharedProvider가 nil이면 초기화 (showCallkitIncoming 없이 직접 호출 시)
+        initCallkitProvider(data)
+
+        let update = CXCallUpdate()
+        update.remoteHandle = CXHandle(type: self.getHandleType(data.handleType), value: data.getEncryptHandle())
+        update.localizedCallerName = data.nameCaller
+        update.hasVideo = data.type > 0
+
+        // iOS 13+: VoIP push 수신 시 reportNewIncomingCall 필수 (미호출 시 앱 강제 종료)
+        // CallKit UI가 ~0.5초 잠깐 표시된 후 즉시 종료됨 (불가피한 iOS 제약)
+        sharedProvider?.reportNewIncomingCall(with: uuid, update: update) { [weak self] error in
+            guard let self = self else { return }
+            // 즉시 종료: 시스템에 통화 실패 보고 → CallKit UI 사라짐
+            self.sharedProvider?.reportCall(with: uuid, endedAt: Date(), reason: .failed)
+            // 부재중 알림 표시
+            DispatchQueue.main.async {
+                self.showMissedCallNotification(data)
+            }
+        }
     }
 
     private func showMissedCallNotification(_ data: Data) {

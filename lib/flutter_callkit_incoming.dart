@@ -153,6 +153,16 @@ class FlutterCallkitIncoming {
     return await _channel.invokeMethod("canUseFullScreenIntent");
   }
 
+  /// Decline an incoming call and show a missed call notification.
+  /// Use when the app cannot handle the call (e.g., refresh token expired).
+  /// iOS: Reports the call to CallKit (required for VoIP push) then immediately
+  ///      ends it and shows a local missed call notification.
+  ///      Note: CallKit UI may appear briefly (~0.5s) due to iOS 13+ VoIP push requirement.
+  /// Android: Hides incoming call UI (if showing) and shows missed call notification.
+  static Future declineWithMissedNotification(CallKitParams params) async {
+    await _channel.invokeMethod("declineWithMissedNotification", params.toJson());
+  }
+
   /// Get the missed call data if the app was launched by tapping a missed call notification.
   /// Similar to FirebaseMessaging.instance.getInitialMessage().
   /// Only Android. Returns null if the app was not launched from a missed call notification.

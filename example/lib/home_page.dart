@@ -76,6 +76,18 @@ class HomePageState extends State<HomePage> {
                   onPressed: endAllCalls,
                 ),
                 const Divider(),
+                const Text('Token expired / Unauthenticated', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.notification_important),
+                  label: Text('Decline with missed notification'),
+                  onPressed: declineWithMissedNotification,
+                ),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.notifications),
+                  label: Text('Show missed call notification'),
+                  onPressed: showMissCallNotification,
+                ),
+                const Divider(),
               ],
             ),
             Expanded(
@@ -233,6 +245,53 @@ class HomePageState extends State<HomePage> {
     await FlutterCallkitIncoming.endAllCalls();
   }
 
+  CallKitParams _buildParams() {
+    return CallKitParams(
+      id: _uuid.v4(),
+      nameCaller: 'Test Caller',
+      appName: 'Callkit',
+      handle: '0123456789',
+      type: 0,
+      duration: 30000,
+      missedCallNotification: const NotificationParams(
+        showNotification: true,
+        isShowCallback: true,
+        subtitle: 'Missed call',
+        callbackText: 'Call back',
+      ),
+      extra: <String, dynamic>{'userId': 'test-user'},
+      android: const AndroidParams(
+        isCustomNotification: true,
+        isShowLogo: false,
+        ringtonePath: 'system_ringtone_default',
+        backgroundColor: '#0955fa',
+        actionColor: '#4CAF50',
+        textColor: '#ffffff',
+        missedCallNotificationChannelName: 'Missed Call',
+      ),
+      ios: const IOSParams(
+        iconName: 'CallKitLogo',
+        handleType: 'generic',
+        supportsVideo: false,
+        audioSessionMode: 'voiceChat',
+        audioSessionActive: false,
+        configureAudioSession: false,
+      ),
+    );
+  }
+
+  // 토큰 만료 시나리오: 수신 전화 UI 없이 부재중 알림만 표시
+  Future<void> declineWithMissedNotification() async {
+    final params = _buildParams();
+    await FlutterCallkitIncoming.declineWithMissedNotification(params);
+  }
+
+  // 부재중 알림만 바로 표시 (Android only)
+  Future<void> showMissCallNotification() async {
+    final params = _buildParams();
+    await FlutterCallkitIncoming.showMissCallNotification(params);
+  }
+
   Future<void> getDevicePushTokenVoIP() async {
     var devicePushTokenVoIP =
         await FlutterCallkitIncoming.getDevicePushTokenVoIP();
@@ -282,6 +341,9 @@ class HomePageState extends State<HomePage> {
             break;
           case Event.actionCallCallback:
             // TODO: only Android - click action `Call back` from missed call notification
+            break;
+          case Event.actionCallMissed:
+            // TODO: Android - missed call notification tapped
             break;
           case Event.actionCallToggleHold:
             // TODO: only iOS

@@ -402,6 +402,14 @@ class FlutterCallkitIncomingPlugin : FlutterPlugin, MethodCallHandler, ActivityA
                     result.success(true)
                 }
 
+                "declineWithMissedNotification" -> {
+                    val data = Data(call.arguments() ?: HashMap())
+                    callkitSoundPlayerManager?.stop()
+                    callkitNotificationManager?.clearIncomingNotification(data.toBundle(), false)
+                    callkitNotificationManager?.showMissCallNotification(data.toBundle())
+                    result.success(true)
+                }
+
                 "endNativeSubsystemOnly" -> {
                     result.success(true)
                 }
