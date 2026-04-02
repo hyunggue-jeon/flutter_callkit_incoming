@@ -926,7 +926,7 @@ public class SwiftFlutterCallkitIncomingPlugin: NSObject, FlutterPlugin, CXProvi
         return NSLocalizedString(key, bundle: Bundle.main, comment: "")
     }
 
-    private func declineWithMissedNotification(_ data: Data) {
+    @objc public func declineWithMissedNotification(_ data: Data) {
         guard let uuid = UUID(uuidString: data.uuid) else { return }
 
         // sharedProvider가 nil이면 초기화 (showCallkitIncoming 없이 직접 호출 시)
